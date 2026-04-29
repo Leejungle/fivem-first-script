@@ -1,0 +1,14 @@
+Next steps after Phase 1 foundation is in place:
+
+1. Install a standalone Lua 5.4 interpreter on Windows (lua.exe) and verify it
+   runs with: lua -v
+2. Write shared/parser_servercfg.lua — the server.cfg line parser — and cover
+   it with fixture-based tests in tests/run.lua using good-minimal.cfg and the
+   two bad cfg fixtures.
+3. Write shared/rules.lua — the rule registry — declaring R001 through R015
+   with IDs, severities, descriptions, and evaluator function stubs.
+4. Implement evaluators for R001, R002, and R003 (the three CRITICAL cfg rules)
+   and confirm they produce correct findings against the fixture files.
+5. Write shared/reporter.lua — the console and Markdown formatter — and verify
+   the output format against the spec in PRODUCT_SPEC.md.
+Stop and wait for Opus to issue Phase 2 prompt.

@@ -1,0 +1,21 @@
+# Lua
+*.luac
+lua_modules/
+.luarocks/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# Legacy / hygiene (unused but kept for safety)
+node_modules/
+dist/
+.env
