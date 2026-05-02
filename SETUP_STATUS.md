@@ -14,11 +14,20 @@ A living checklist of the local development environment for this project.
       `C:\Users\Admin\Projects\fivem-first-script\`
       (origin: `https://github.com/Leejungle/fivem-first-script.git`).
       Push round-trip verified working on 2026-05-02 (commit `e6d4da5`).
-- [x] **Standalone Lua 5.4 interpreter** — verified `Lua 5.4.6` on
-      2026-05-02 at `C:\Users\Admin\AppData\Local\Programs\Lua\bin\lua.exe`
+- [x] **Standalone Lua 5.4 interpreter (desktop)** — verified `Lua 5.4.6`
+      on 2026-05-02 at `C:\Users\Admin\AppData\Local\Programs\Lua\bin\lua.exe`
       via `winget install --id=DEVCOM.Lua --source winget`.
+- [x] **Standalone Lua 5.4 interpreter (laptop)** — verified `Lua 5.4.6`
+      on 2026-05-02 at `C:\Users\ACER\AppData\Local\Programs\Lua\bin\lua.exe`
+      via `winget install --id=DEVCOM.Lua --source winget`
+      `--accept-source-agreements --accept-package-agreements`.
+- [x] **Laptop machine cloned** — second active machine cloned to
+      `g:\FiveM\fivem-first-script\` on 2026-05-02. Both machines stay
+      in sync via GitHub `main`.
 - [x] **Baseline test suite green** — `lua tests/run.lua` reports
-      `106 passed, 0 failed` (exit code 0) as of 2026-05-02.
+      `126 passed, 0 failed` (exit code 0) as of 2026-05-02 after the
+      reporter commit (`084c09c`). Was `106 passed, 0 failed` before
+      reporter shipped.
 
 ## Later — Needed for v1 Integration Test and Selling
 
@@ -62,4 +71,4 @@ install directory to your system PATH manually (Control Panel > System >
 Advanced system settings > Environment Variables > PATH).
 
 ---
-Last updated: 2026-05-02
+Last updated: 2026-05-02 (laptop session, post-reporter)

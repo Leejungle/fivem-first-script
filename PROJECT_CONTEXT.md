@@ -7,7 +7,7 @@
 > any chat history. Update this file at the end of every session that changes
 > what is "done" or "next".
 >
-> **Last updated:** 2026-05-02 (end of session).
+> **Last updated:** 2026-05-02 (laptop session, post-reporter — Phase 1 complete).
 
 ---
 
@@ -39,13 +39,14 @@ to `server.cfg`.
 |---|---|
 | GitHub repository | https://github.com/Leejungle/fivem-first-script |
 | Default branch | `main` |
-| Local working folder (active machine) | `C:\Users\Admin\Projects\fivem-first-script\` |
+| Local working folders (active machines) | Desktop: `C:\Users\Admin\Projects\fivem-first-script\` • Laptop: `g:\FiveM\fivem-first-script\` |
 | Old ZIP snapshot folder (read-only history) | `C:\Users\Admin\Downloads\FiveM_first_script\` |
 | Source of truth | **GitHub `main`** |
 | Daily backup mechanism | `git push origin main` |
 
-The ZIP folder must NEVER be edited going forward. If a new machine is
-used, clone fresh from GitHub.
+Both active machines stay in sync via GitHub `main`. The ZIP folder must
+NEVER be edited going forward. If another machine is added, clone fresh
+from GitHub.
 
 ---
 
@@ -82,7 +83,7 @@ fxpreflight/
 │   ├── parser_servercfg.lua         DONE — line/directive parser
 │   ├── parser_fxmanifest.lua        DONE — sandboxed load() recorder
 │   ├── rules.lua                    DONE registry; 10/15 evaluators implemented
-│   └── reporter.lua                 MISSING — next implementation target
+│   └── reporter.lua                 DONE — pure 3-function API (149 lines)
 ├── server/                          (FiveM glue layer; deferred until local FXServer)
 │   └── main.lua                     MISSING — Phase 2 deliverable
 ├── tests/
@@ -93,7 +94,7 @@ fxpreflight/
 │   ├── test_rules_critical_fxmanifest.lua  DONE (R008)
 │   ├── test_rules_warning_cfg.lua   DONE (R004/R005/R007)
 │   ├── test_rules_warning_fxmanifest.lua  DONE (R009/R011/R013)
-│   └── test_reporter.lua            MISSING — to be created with reporter.lua
+│   └── test_reporter.lua            DONE — 20 byte-exact cases (269 lines)
 ├── fixtures/                        (workspace-root during dev; copied into resource at packaging time)
 │   ├── server-cfg/                  DONE — 4 fixtures
 │   └── fxmanifest/                  DONE — 2 fixtures
@@ -120,7 +121,7 @@ fxpreflight/
 
 ## 6. Current Completion Status
 
-Verified as of 2026-05-02 end-of-session.
+Verified as of 2026-05-02 (laptop session, post-reporter commit `084c09c`).
 
 ### Done & Verified
 - All planning, market research, and ADR docs.
@@ -129,17 +130,26 @@ Verified as of 2026-05-02 end-of-session.
 - `shared/parser_fxmanifest.lua`.
 - `shared/rules.lua` registry with 10 working evaluators:
   R001, R002, R003, R004, R005, R007, R008, R009, R011, R013.
-- `tests/run.lua` + 6 test files.
-- **Baseline test suite: 106 passed, 0 failed** (verified with
-  `lua tests/run.lua` on Lua 5.4.6 / Windows 10).
-- Git installed (2.54.0) and configured (`Lee Jungle / leejungle23@gmail.com`).
-- GitHub clone + push round-trip verified working.
-- Lua 5.4.6 installed on machine.
+- `shared/reporter.lua` — pure 3-function API (`summarize`,
+  `format_console`, `format_markdown`); byte-exact console + Markdown
+  formats; sort by (severity, rule_id, file, line); no I/O, no FiveM
+  natives, no network calls.
+- `tests/run.lua` + 7 test files (parser_servercfg, parser_fxmanifest,
+  rules_critical_cfg, rules_critical_fxmanifest, rules_warning_cfg,
+  rules_warning_fxmanifest, reporter).
+- `tests/test_reporter.lua` — 20 byte-exact cases (8 summarize +
+  7 format_console + 5 format_markdown).
+- **Baseline test suite: 126 passed, 0 failed** (verified with
+  `lua tests/run.lua` on Lua 5.4.6 / Windows; +20 from reporter,
+  was 106 before commit `084c09c`).
+- Git installed (2.54.0 on desktop, also present on laptop) and
+  configured (`Lee Jungle / leejungle23@gmail.com`).
+- GitHub clone + push round-trip verified working from both machines.
+- Lua 5.4.6 installed on both desktop and laptop.
 
 ### Pending (planned, not yet started)
-- `shared/reporter.lua` — TDD plan written, Sonnet prompt approved (v2),
-  Sonnet agent NOT yet launched. **This is the next concrete coding task.**
-- `tests/test_reporter.lua` — to be created together with reporter.
+- (none — Phase 1 v1 contract is COMPLETE; see §8 for the next
+  product decision)
 
 ### Deferred (intentionally postponed; not a bug)
 - R006, R010, R012, R014, R015 — stubs returning `nil`. Most need
@@ -203,30 +213,47 @@ If user requests a model not in the list, do not silently substitute; ask.
 
 ## 8. Immediate Next Step
 
-**Verified state at end of 2026-05-02:** baseline green; reporter not started.
+**Verified state after 2026-05-02 laptop session:** baseline 126 / 126;
+reporter shipped (commit `084c09c`); Phase 1 v1 contract complete.
 
-### Next concrete coding task
-Implement `shared/reporter.lua` + `tests/test_reporter.lua` via Sonnet,
-using the prompt that was drafted and human-approved on 2026-05-02
-(prompt v2 with 5 safety tightenings).
+### Phase 2 entry-point decision (no active code task)
 
-The prompt enforces:
-- 3-function API: `summarize`, `format_console`, `format_markdown`.
-- Byte-exact console format (with explicit severity-padding table).
-- Byte-exact Markdown format (with full 4-findings expected output).
-- 20 test cases enumerated; total test count must reach >=126.
-- No git commit/push by Sonnet; only `git status` + `git diff --stat`.
-- Allowed files: create `shared/reporter.lua`, `tests/test_reporter.lua`;
-  modify `tests/run.lua` by exactly 1 line (add the new require).
+The five remaining stub evaluators (R006, R010, R012, R014, R015) all
+require either filesystem walking or a live FXServer convention check.
+Neither can be implemented purely in `shared/` without first either
+installing FXServer locally OR writing a small filesystem-walker
+utility. There is no obvious "safe next coding task" until this product
+choice is made.
 
-After Sonnet finishes, Opus reviews using a checklist (file scope, API
-shape, output byte-exactness, test coverage, no forbidden files touched,
-test runner output 0 failed), then commits and pushes.
+Two candidate paths:
 
-### After reporter ships (next-next)
-- Update `SETUP_STATUS.md` and `NEXT_STEPS.txt`.
-- Decide Phase 2 entry point: either implement R006/R010/R012/R014/R015
-  evaluators, or start `server/main.lua` (requires local FXServer).
+**Path A — FXServer-first.** Install FXServer + txAdmin locally,
+then build `server/main.lua` as the scaffolding that walks the
+resources tree, locates `server.cfg`, dispatches to the parsers and
+rules, and feeds findings to `reporter`. Implement R006 (txAdmin
+convention), R010 (`__resource.lua` detection), R012 (script-path
+existence), R014 (resource-folder existence), and R015 (`add_ace`
+without `add_principal`) inside that loop. Produces a shippable
+resource sooner.
+
+**Path B — offline-first.** Add a small `shared/fs.lua` filesystem
+walker (pure Lua, testable offline against a fixture tree). Implement
+the three offline-friendly evaluators in shared:
+  - R010 (detect `__resource.lua` files)
+  - R012 (verify `client_script` / `server_script` paths exist)
+  - R014 (verify `ensure <resource>` folders exist)
+R006 and R015 stay deferred until FXServer is installed. Keeps the
+project entirely offline-testable for longer and grows the test suite
+without new tooling.
+
+The choice is a product decision (ship-speed vs. test-surface) and is
+deferred to the next session. Opus will not pick unilaterally.
+
+### Bookkeeping after the next decision
+
+- Update `MASTER_PROMPT.md §4` to lock the chosen Phase 2 task order.
+- Update `NEXT_STEPS.txt` Active task to the first concrete sub-task
+  of the chosen path.
 
 ---
 

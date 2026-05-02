@@ -2,25 +2,27 @@ Next steps for fxpreflight.
 
 PHASE 1 — Offline Lua Foundation
 
-Prerequisites (DONE on 2026-05-02):
-[x] Lua 5.4 installed on Windows (verified Lua 5.4.6 via lua -v)
-[x] Baseline test suite green: lua tests/run.lua -> 106 passed, 0 failed
+Prerequisites (DONE):
+[x] Lua 5.4 installed on Windows (verified Lua 5.4.6 via lua -v) on both
+    desktop (2026-05-02) and laptop (2026-05-02 same day, second session)
 [x] Git installed and configured; GitHub clone is canonical working folder
-    at C:\Users\Admin\Projects\fivem-first-script
+    Desktop: C:\Users\Admin\Projects\fivem-first-script
+    Laptop:  g:\FiveM\fivem-first-script
 [x] shared/parser_servercfg.lua written and tested
 [x] shared/parser_fxmanifest.lua written and tested
 [x] shared/rules.lua registry with 15 descriptors declared
 [x] Working evaluators for R001 R002 R003 R004 R005 R007 R008 R009 R011 R013
+[x] shared/reporter.lua + tests/test_reporter.lua DONE 2026-05-02 (laptop
+    session); commit 084c09c; baseline grew 106 -> 126 passed, 0 failed
+[x] Phase 1 v1 contract COMPLETE per MASTER_PROMPT.md §4 acceptance criteria
 
 Active task (NEXT):
-[ ] Implement shared/reporter.lua + tests/test_reporter.lua via Sonnet.
-    The TDD plan and the scoped Sonnet prompt (v2, with 5 safety
-    tightenings) were drafted and human-approved on 2026-05-02. The
-    Sonnet agent was NOT launched yet; the human ended the session
-    before launch. First action of the next session: launch the
-    approved Sonnet prompt, then Opus reviews, commits, pushes.
-    After this lands, the test count should rise from 106 to >=126
-    and Phase 1 is complete.
+[ ] No active CODE task. Phase 1 is complete. The next decision is the
+    Phase 2 entry point and is documented in PROJECT_CONTEXT.md §8 with
+    two candidate paths (A: FXServer-first; B: offline-first via a
+    shared/fs.lua walker for R010/R012/R014). The choice is a product
+    decision and must be made by the human before any new code is
+    written. Opus will not pick unilaterally.
 
 PHASE 2 — FiveM Runtime Integration (deferred)
 
