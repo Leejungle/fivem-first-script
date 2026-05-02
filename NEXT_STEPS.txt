@@ -1,14 +1,37 @@
-Next steps after Phase 1 foundation is in place:
+Next steps for fxpreflight.
 
-1. Install a standalone Lua 5.4 interpreter on Windows (lua.exe) and verify it
-   runs with: lua -v
-2. Write shared/parser_servercfg.lua — the server.cfg line parser — and cover
-   it with fixture-based tests in tests/run.lua using good-minimal.cfg and the
-   two bad cfg fixtures.
-3. Write shared/rules.lua — the rule registry — declaring R001 through R015
-   with IDs, severities, descriptions, and evaluator function stubs.
-4. Implement evaluators for R001, R002, and R003 (the three CRITICAL cfg rules)
-   and confirm they produce correct findings against the fixture files.
-5. Write shared/reporter.lua — the console and Markdown formatter — and verify
-   the output format against the spec in PRODUCT_SPEC.md.
-Stop and wait for Opus to issue Phase 2 prompt.
+PHASE 1 — Offline Lua Foundation
+
+Prerequisites (DONE on 2026-05-02):
+[x] Lua 5.4 installed on Windows (verified Lua 5.4.6 via lua -v)
+[x] Baseline test suite green: lua tests/run.lua -> 106 passed, 0 failed
+[x] Git installed and configured; GitHub clone is canonical working folder
+    at C:\Users\Admin\Projects\fivem-first-script
+[x] shared/parser_servercfg.lua written and tested
+[x] shared/parser_fxmanifest.lua written and tested
+[x] shared/rules.lua registry with 15 descriptors declared
+[x] Working evaluators for R001 R002 R003 R004 R005 R007 R008 R009 R011 R013
+
+Active task (NEXT):
+[ ] Implement shared/reporter.lua + tests/test_reporter.lua via Sonnet.
+    The TDD plan and the scoped Sonnet prompt (v2, with 5 safety
+    tightenings) were drafted and human-approved on 2026-05-02. The
+    Sonnet agent was NOT launched yet; the human ended the session
+    before launch. First action of the next session: launch the
+    approved Sonnet prompt, then Opus reviews, commits, pushes.
+    After this lands, the test count should rise from 106 to >=126
+    and Phase 1 is complete.
+
+PHASE 2 — FiveM Runtime Integration (deferred)
+
+Blocked by: no local FXServer runtime available yet.
+[ ] Create root fxmanifest.lua (resource manifest declaring server scripts).
+[ ] Create config.lua (Discord webhook URL holder).
+[ ] Create server/main.lua (onResourceStart handler, file walker, dispatch
+    to shared/, write fxpreflight_report.md, optional PerformHttpRequest).
+[ ] Implement remaining stub evaluators that need filesystem walking:
+    R006 R010 R012 R014 R015.
+[ ] Integration-test against a real FXServer.
+[ ] Tebex packaging.
+
+Stop and wait for Opus to issue per-step prompts. Do not jump phases.
