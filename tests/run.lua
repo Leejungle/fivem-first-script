@@ -83,5 +83,6 @@ require('tests.test_parser_fxmanifest')
 require('tests.test_rules_critical_fxmanifest')
 require('tests.test_rules_warning_cfg')
 require('tests.test_rules_warning_fxmanifest')
+require('tests.test_reporter')
 -- print summary, exit with code 0 if all passed, 1 otherwise
 M.report_and_exit()
