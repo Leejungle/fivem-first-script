@@ -19,3 +19,8 @@ Thumbs.db
 node_modules/
 dist/
 .env
+
+# fxpreflight runtime snapshot of server.cfg, copied by start.bat on every
+# FXServer boot so the resource (sandboxed by FiveM) can read it via
+# LoadResourceFile. Contains the live sv_licenseKey -- must NEVER be committed.
+server.cfg.runtime
