@@ -30,3 +30,11 @@ server.cfg.runtime
 # the user's local cfg/resources, and are not part of the source repo.
 fxpreflight_report.md
 fxpreflight_run.log
+
+# Local-only scratch / planning folders. Never tracked by Git so that
+# personal notes, machine-specific paths, and temporary files cannot
+# accidentally leak into the public repo.
+.local/
+local/
+tmp/
+*.local

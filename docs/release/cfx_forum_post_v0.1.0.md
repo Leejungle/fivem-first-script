@@ -1,20 +1,7 @@
-# Cfx Forum release post draft — fxpreflight v0.1.0
-
-> **Where to post**: https://forum.cfx.re/c/development/releases/7
->
-> **Required forum trust level**: 1 (the new-user trust level Discourse
-> grants automatically once you have read at least 5 topics and spent
-> ~10 minutes browsing the forum). Do this BEFORE clicking New Topic.
->
-> **Title field** (copy/paste exactly):
-> ```
-> [Release][Free] fxpreflight — Boot-time linter for server.cfg + fxmanifest.lua
-> ```
->
-> **Tags field** (start typing, pick from the suggestions):
-> `release`, `free`, `server-management`, `lua`, `mit-license`
->
-> **Body** (paste everything below this line into the editor)
+Body of the public release announcement posted to
+forum.cfx.re/c/development/releases for fxpreflight v0.1.0. Kept in the
+repo as a release artifact so the post can be reproduced or referenced
+later.
 
 ---
 
@@ -201,24 +188,3 @@ snippet and I will look at it.
 
 fxpreflight is not affiliated with Cfx.re. "FiveM" is a trademark of
 Cfx.re.
-
----
-
-## Author's pre-publish checklist (do NOT paste into the forum)
-
-Before clicking Create Topic on `forum.cfx.re`:
-
-- [ ] You have already pushed `main` to GitHub: `git push origin main`.
-- [ ] You have already pushed the v0.1.0 tag: `git push origin v0.1.0`.
-- [ ] You have created the GitHub Release on
-      https://github.com/Leejungle/fivem-first-script/releases/new
-      with the body from `docs/release/github_release_v0.1.0.md`.
-- [ ] All the GitHub URLs in this draft resolve (no 404 from the forum).
-- [ ] You spent at least 10 minutes browsing the Cfx Forum and have
-      Trust Level 1 (otherwise the post is auto-flagged for review).
-- [ ] You are signed in to `forum.cfx.re` as `Lee_Jungle` (or whichever
-      handle matches your GitHub author identity, for consistency).
-- [ ] No `cfxk_*` license key, no public IP, and no email address
-      anywhere in the post body. Recheck once more.
-- [ ] After publish, pin the topic to your GitHub README or repo
-      description so cross-discoverability works.

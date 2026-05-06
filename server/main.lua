@@ -132,9 +132,8 @@ end
 -- resource folder. We use LoadResourceFile (FiveM-native) instead of io.open
 -- because FiveM sandboxes io.open server-side and refuses to read files
 -- outside the resource folder, even when the file exists and is readable
--- by the underlying OS process (verified on 2026-05-03 against
--- F:\FXServer\server-data\server.cfg). The snapshot is regenerated every
--- boot, so a typical edit-and-restart workflow always sees fresh content.
+-- by the underlying OS process. The snapshot is regenerated every boot,
+-- so a typical edit-and-restart workflow always sees fresh content.
 -- ---------------------------------------------------------------------------
 local function readServerCfg()
   local snapshot = LoadResourceFile(RESOURCE, 'server.cfg.runtime')
