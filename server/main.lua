@@ -8,8 +8,19 @@
 -- read its fxmanifest.lua (or legacy __resource.lua) via LoadResourceFile,
 -- run every rule whose applies_to == 'fxmanifest', and merge those findings
 -- with the servercfg findings into a single report.
--- Out of scope (deferred to later sub-phases): writing fxpreflight_report.md
--- to disk, in-game refresh command, and any network calls (Discord webhook).
+-- Sub-phase 2.3.5: skip Cfx-shipped default resources (DEFAULT_CFX_RESOURCES)
+-- to keep the signal-to-noise ratio sane for v0.1.
+-- Sub-phase 2.4: persist every preflight run to disk via SaveResourceFile so
+-- the user can review or share the report without re-reading the FXServer
+-- console. Two files land alongside the resource:
+--   * fxpreflight_report.md  -- markdown, just the findings (shareable)
+--   * fxpreflight_run.log    -- verbatim console output of the run (debug)
+-- Both are gitignored. Every line printed by the preflight is also captured
+-- in LOG_BUFFER and written to fxpreflight_run.log on completion.
+-- Sub-phase 2.5: a console command 'fxpreflight' (RegisterCommand, restricted)
+-- reruns the preflight without restarting the resource, which is much faster
+-- than 'restart fxpreflight' during iterative development.
+-- Out of scope (deferred): Discord webhook, HTML report, config.lua.
 
 local RESOURCE = GetCurrentResourceName()
 local PREFIX   = '[fxpreflight] '
@@ -101,6 +112,21 @@ assert(type(reporter.format_console)        == 'function', 'reporter.format_cons
 assert(type(reporter.format_markdown)       == 'function', 'reporter.format_markdown missing')
 
 -- ---------------------------------------------------------------------------
+-- LOG_BUFFER + say(line) -> nil
+-- A per-run buffer of console lines. say() both prints to the FXServer
+-- console (so the user still sees real-time output) AND appends to the
+-- buffer so the run can be persisted to fxpreflight_run.log without
+-- having to re-implement formatting. Reset at the start of every
+-- runPreflight() invocation so each log file represents exactly one run.
+-- ---------------------------------------------------------------------------
+local LOG_BUFFER = {}
+
+local function say(line)
+  print(line)
+  LOG_BUFFER[#LOG_BUFFER + 1] = line
+end
+
+-- ---------------------------------------------------------------------------
 -- readServerCfg() -> (text, source_label) | (nil, nil)
 -- Reads the boot-time snapshot of server.cfg that start.bat copies into the
 -- resource folder. We use LoadResourceFile (FiveM-native) instead of io.open
@@ -116,11 +142,11 @@ local function readServerCfg()
     return snapshot, 'server.cfg.runtime (boot-time snapshot)'
   end
 
-  print(PREFIX .. 'ERROR: server.cfg.runtime is missing or empty.')
-  print(PREFIX .. '       start.bat must snapshot server.cfg into the resource')
-  print(PREFIX .. '       folder before FXServer boots. Add this line to')
-  print(PREFIX .. '       F:\\FXServer\\server-data\\start.bat (before FXServer.exe):')
-  print(PREFIX .. '         copy /Y server.cfg resources\\fxpreflight\\server.cfg.runtime > nul')
+  say(PREFIX .. 'ERROR: server.cfg.runtime is missing or empty.')
+  say(PREFIX .. '       start.bat must snapshot server.cfg into the resource')
+  say(PREFIX .. '       folder before FXServer boots. Add this line to')
+  say(PREFIX .. '       F:\\FXServer\\server-data\\start.bat (before FXServer.exe):')
+  say(PREFIX .. '         copy /Y server.cfg resources\\fxpreflight\\server.cfg.runtime > nul')
   return nil, nil
 end
 
@@ -223,37 +249,78 @@ local function collectFxManifestFindings()
 end
 
 -- ---------------------------------------------------------------------------
--- printBlock(block) -> nil
--- Splits a multi-line string and prints each line via print(), so every
--- visible console row carries the FiveM '[script:fxpreflight]' prefix
--- instead of one prefix for the whole block plus prefix-less continuation
--- lines.
+-- sayBlock(block) -> nil
+-- Splits a multi-line string and routes each line through say(), so every
+-- visible console row carries the FiveM '[script:fxpreflight]' prefix AND
+-- gets captured into LOG_BUFFER for persistence.
 -- ---------------------------------------------------------------------------
-local function printBlock(block)
+local function sayBlock(block)
   for line in block:gmatch('([^\n]+)') do
-    print(line)
+    say(line)
   end
 end
 
-AddEventHandler('onResourceStart', function(name)
-  if name ~= RESOURCE then return end
+-- ---------------------------------------------------------------------------
+-- flushReport(summary) -> nil
+-- Persists the just-finished run as two sibling files inside the resource
+-- folder (which is the only place the FiveM sandbox lets us write):
+--   * fxpreflight_report.md  -- the user-facing markdown report
+--   * fxpreflight_run.log    -- the literal console output of this run
+-- The .md file is the one a server owner would paste into a forum or
+-- Discord; the .log file is for debugging and for the dev workflow where
+-- the next chat turn can read the run output directly without anyone
+-- having to copy-paste from the FXServer console.
+-- ---------------------------------------------------------------------------
+local function flushReport(summary)
+  local md = reporter.format_markdown(summary)
+  local ok_md = SaveResourceFile(RESOURCE, 'fxpreflight_report.md', md, -1)
+  if ok_md then
+    say(string.format('%sreport written -> fxpreflight_report.md (%d bytes)',
+      PREFIX, #md))
+  else
+    say(PREFIX .. 'WARNING: failed to write fxpreflight_report.md')
+  end
 
-  print(string.format(
-    '%sv%s skeleton OK -- modules loaded: 4, rules registered: %d',
+  -- Write the log LAST so the report-written status line above is included.
+  local logtext = table.concat(LOG_BUFFER, '\n') .. '\n'
+  local ok_log = SaveResourceFile(RESOURCE, 'fxpreflight_run.log', logtext, -1)
+  if not ok_log then
+    -- Cannot persist the failure to the log file, but still surface it
+    -- in the live console so the user notices immediately.
+    print(PREFIX .. 'WARNING: failed to write fxpreflight_run.log')
+  end
+end
+
+-- ---------------------------------------------------------------------------
+-- runPreflight() -> nil
+-- The full preflight pipeline: read snapshot, parse, run servercfg rules,
+-- scan resources, run fxmanifest rules, merge, summarise, format, print,
+-- persist. Extracted from the onResourceStart handler so the same code
+-- path runs from RegisterCommand('fxpreflight', ...) too.
+-- ---------------------------------------------------------------------------
+local function runPreflight()
+  -- Reset the per-run buffer so each fxpreflight_run.log represents
+  -- exactly one run rather than concatenated history.
+  LOG_BUFFER = {}
+
+  say(string.format(
+    '%sv%s preflight starting -- modules loaded: 4, rules registered: %d',
     PREFIX, VERSION, #rules.list))
 
   -- Sub-phase 2.2: server.cfg ingestion -------------------------------------
   local cfg_text, cfg_path_used = readServerCfg()
   if not cfg_text then
+    -- readServerCfg() already explained the problem via say(); persist what
+    -- we have so the dev workflow can still see why the run aborted.
+    SaveResourceFile(RESOURCE, 'fxpreflight_run.log',
+      table.concat(LOG_BUFFER, '\n') .. '\n', -1)
     return
   end
 
   local parsed       = parser_cfg.parse_string(cfg_text)
   local cfg_findings = collectServerCfgFindings(parsed)
 
-  -- Sub-phase 2.3: fxmanifest scanning across all loaded resources --------
-  -- Sub-phase 2.3.5: skip Cfx-shipped default resources to keep signal
-  -- focused on user-owned resources.
+  -- Sub-phase 2.3 + 2.3.5: scan other resources, skip Cfx defaults ---------
   -- Wrapped in pcall so a native-call surprise cannot prevent the servercfg
   -- report from being printed.
   local mf_findings, scanned, with_manifest, skipped = {}, 0, 0, 0
@@ -261,7 +328,7 @@ AddEventHandler('onResourceStart', function(name)
   if ok then
     mf_findings, scanned, with_manifest, skipped = ret_findings, s, w, sk
   else
-    print(PREFIX .. 'WARNING: fxmanifest scan crashed: ' .. tostring(ret_findings))
+    say(PREFIX .. 'WARNING: fxmanifest scan crashed: ' .. tostring(ret_findings))
   end
 
   -- Merge servercfg + fxmanifest findings into a single sorted report.
@@ -272,10 +339,38 @@ AddEventHandler('onResourceStart', function(name)
   local summary = reporter.summarize(findings)
   local block   = reporter.format_console(summary)
 
-  print(string.format('%spreflight on %s -- %d bytes parsed',
+  say(string.format('%spreflight on %s -- %d bytes parsed',
     PREFIX, cfg_path_used, parsed.bytes))
-  print(string.format(
+  say(string.format(
     '%sscanned %d resources, %d with manifest (%d Cfx defaults skipped)',
     PREFIX, scanned, with_manifest, skipped))
-  printBlock(block)
+  sayBlock(block)
+
+  -- Sub-phase 2.4: persist this run --------------------------------------
+  flushReport(summary)
+end
+
+-- ---------------------------------------------------------------------------
+-- Boot trigger: run preflight automatically the first time fxpreflight
+-- itself starts. After that, the operator can rerun on demand via the
+-- 'fxpreflight' console command without having to restart the resource.
+-- ---------------------------------------------------------------------------
+AddEventHandler('onResourceStart', function(name)
+  if name ~= RESOURCE then return end
+  runPreflight()
 end)
+
+-- ---------------------------------------------------------------------------
+-- Sub-phase 2.5: 'fxpreflight' console command
+-- The third argument 'true' marks the command as restricted (admin-only).
+-- That means it can be invoked from the server console or from a player
+-- with the 'command.fxpreflight' ACE, but a regular player cannot trigger
+-- it through chat. For v0.1 we only care about the console use case --
+-- typing 'fxpreflight' in the FXServer console reruns the pipeline,
+-- regenerates the .md/.log files, and is meaningfully faster than
+-- 'restart fxpreflight' because it avoids tearing down and rebuilding
+-- the resource's script environment.
+-- ---------------------------------------------------------------------------
+RegisterCommand('fxpreflight', function(_source, _args, _raw)
+  runPreflight()
+end, true)

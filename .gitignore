@@ -24,3 +24,9 @@ dist/
 # FXServer boot so the resource (sandboxed by FiveM) can read it via
 # LoadResourceFile. Contains the live sv_licenseKey -- must NEVER be committed.
 server.cfg.runtime
+
+# fxpreflight per-run output written via SaveResourceFile. Both files are
+# regenerated on every preflight run, contain only findings derived from
+# the user's local cfg/resources, and are not part of the source repo.
+fxpreflight_report.md
+fxpreflight_run.log
