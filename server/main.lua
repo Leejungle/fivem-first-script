@@ -4,9 +4,12 @@
 -- Sub-phase 2.2: on onResourceStart, also read server.cfg, run every rule
 -- whose applies_to == 'servercfg', and print the formatted preflight report
 -- block to the FXServer console.
--- Out of scope (deferred to later sub-phases): scanning resources/ for
--- fxmanifest.lua files, writing fxpreflight_report.md to disk, and any
--- network calls (Discord webhook).
+-- Sub-phase 2.3: also enumerate every loaded resource via FiveM natives,
+-- read its fxmanifest.lua (or legacy __resource.lua) via LoadResourceFile,
+-- run every rule whose applies_to == 'fxmanifest', and merge those findings
+-- with the servercfg findings into a single report.
+-- Out of scope (deferred to later sub-phases): writing fxpreflight_report.md
+-- to disk, in-game refresh command, and any network calls (Discord webhook).
 
 local RESOURCE = GetCurrentResourceName()
 local PREFIX   = '[fxpreflight] '
@@ -96,6 +99,78 @@ local function collectServerCfgFindings(parsed)
 end
 
 -- ---------------------------------------------------------------------------
+-- listOtherResources() -> array of resource names (excluding fxpreflight)
+-- Walks every loaded resource at the moment of the call. Resources that
+-- start AFTER fxpreflight will not be visible here; v0.1 documents that
+-- fxpreflight should be ensured near the bottom of server.cfg so the
+-- preflight scan sees the full set. A future /fxpreflight rescan command
+-- (Sub-phase 2.5+) will lift this constraint.
+-- ---------------------------------------------------------------------------
+local function listOtherResources()
+  local list = {}
+  for i = 0, GetNumResources() - 1 do
+    local name = GetResourceByFindIndex(i)
+    if name and name ~= RESOURCE then
+      table.insert(list, name)
+    end
+  end
+  return list
+end
+
+-- ---------------------------------------------------------------------------
+-- readManifestSource(resourceName) -> (text, filename) | (nil, nil)
+-- Reads the manifest source of another resource via LoadResourceFile (which
+-- IS allowed cross-resource, unlike io.open). Modern resources use
+-- 'fxmanifest.lua'; very old ones still use the legacy '__resource.lua'.
+-- We try both so the scan stays useful on long-running servers with mixed
+-- resource generations.
+-- ---------------------------------------------------------------------------
+local function readManifestSource(resourceName)
+  local src = LoadResourceFile(resourceName, 'fxmanifest.lua')
+  if src and src ~= '' then return src, 'fxmanifest.lua' end
+  src = LoadResourceFile(resourceName, '__resource.lua')
+  if src and src ~= '' then return src, '__resource.lua' end
+  return nil, nil
+end
+
+-- ---------------------------------------------------------------------------
+-- collectFxManifestFindings() -> (findings, scanned, with_manifest)
+-- For every other loaded resource, parse its manifest and run every
+-- 'fxmanifest' rule. Each finding is annotated with the resource name in
+-- finding.file so the report is unambiguous when multiple resources fire
+-- the same rule. Both the parser call and each rule evaluation are wrapped
+-- in pcall so a single broken manifest or buggy rule cannot prevent the
+-- rest of the scan from running.
+-- ---------------------------------------------------------------------------
+local function collectFxManifestFindings()
+  local findings      = {}
+  local scanned       = 0
+  local with_manifest = 0
+
+  for _, name in ipairs(listOtherResources()) do
+    scanned = scanned + 1
+    local src, file_used = readManifestSource(name)
+    if src then
+      with_manifest = with_manifest + 1
+      local ok_parse, parsed = pcall(parser_manifest.parse_string, src)
+      if ok_parse and parsed then
+        for _, rule in ipairs(rules.list) do
+          if rule.applies_to == 'fxmanifest' then
+            local ok_eval, result = pcall(rule.evaluate, parsed)
+            if ok_eval and result then
+              result.file = name .. '/' .. file_used
+              table.insert(findings, result)
+            end
+          end
+        end
+      end
+    end
+  end
+
+  return findings, scanned, with_manifest
+end
+
+-- ---------------------------------------------------------------------------
 -- printBlock(block) -> nil
 -- Splits a multi-line string and prints each line via print(), so every
 -- visible console row carries the FiveM '[script:fxpreflight]' prefix
@@ -121,12 +196,31 @@ AddEventHandler('onResourceStart', function(name)
     return
   end
 
-  local parsed   = parser_cfg.parse_string(cfg_text)
-  local findings = collectServerCfgFindings(parsed)
-  local summary  = reporter.summarize(findings)
-  local block    = reporter.format_console(summary)
+  local parsed       = parser_cfg.parse_string(cfg_text)
+  local cfg_findings = collectServerCfgFindings(parsed)
+
+  -- Sub-phase 2.3: fxmanifest scanning across all loaded resources --------
+  -- Wrapped in pcall so a native-call surprise cannot prevent the servercfg
+  -- report from being printed.
+  local mf_findings, scanned, with_manifest = {}, 0, 0
+  local ok, err_or_findings, s, w = pcall(collectFxManifestFindings)
+  if ok then
+    mf_findings, scanned, with_manifest = err_or_findings, s, w
+  else
+    print(PREFIX .. 'WARNING: fxmanifest scan crashed: ' .. tostring(err_or_findings))
+  end
+
+  -- Merge servercfg + fxmanifest findings into a single sorted report.
+  local findings = {}
+  for _, f in ipairs(cfg_findings) do table.insert(findings, f) end
+  for _, f in ipairs(mf_findings)  do table.insert(findings, f) end
+
+  local summary = reporter.summarize(findings)
+  local block   = reporter.format_console(summary)
 
   print(string.format('%spreflight on %s -- %d bytes parsed',
     PREFIX, cfg_path_used, parsed.bytes))
+  print(string.format('%sscanned %d resources, %d with manifest',
+    PREFIX, scanned, with_manifest))
   printBlock(block)
 end)
