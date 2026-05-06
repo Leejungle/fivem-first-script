@@ -2,7 +2,7 @@ fx_version 'cerulean'
 games { 'gta5' }
 
 author 'Lee_Jungle'
-description 'Static analysis preflight check for FiveM server.cfg and resource manifests.'
+description 'Boot-time linter for FiveM server.cfg and fxmanifest.lua. 15 rules, zero external deps. MIT.'
 version '0.1.0'
 
 lua54 'yes'
