@@ -16,6 +16,51 @@ local PREFIX   = '[fxpreflight] '
 local VERSION  = '0.1.0'
 
 -- ---------------------------------------------------------------------------
+-- DEFAULT_CFX_RESOURCES
+-- Resources that ship with FXServer itself or with the official Cfx default
+-- resources bundle. They are maintained by Cfx, intentionally pin legacy
+-- fx_version values for backward compat, and a server owner cannot
+-- meaningfully "fix" the warnings fxpreflight would emit against them.
+-- Skipping them keeps the v0.1 report focused on resources the user actually
+-- installed and owns. Verified on a fresh FXServer + default-resources build
+-- on 2026-05-06; revisit in v0.2 when config.lua lets the user override.
+-- ---------------------------------------------------------------------------
+local DEFAULT_CFX_RESOURCES = {
+  -- Core / system
+  ['fivem']                       = true,
+  ['fivem-map-hipster']           = true,
+  ['fivem-map-skater']            = true,
+  ['mapmanager']                  = true,
+  ['monitor']                     = true,
+  ['sessionmanager']              = true,
+  ['sessionmanager-rdr3']         = true,
+  ['webpack']                     = true,
+  ['yarn']                        = true,
+
+  -- Standard gameplay / RP scaffolding
+  ['baseevents']                  = true,
+  ['basic-gamemode']              = true,
+  ['chat']                        = true,
+  ['chat-theme-gtao']             = true,
+  ['hardcap']                     = true,
+  ['playernames']                 = true,
+  ['rconlog']                     = true,
+  ['runcode']                     = true,
+  ['spawnmanager']                = true,
+
+  -- Bundled examples / tutorials
+  ['example-loadscreen']          = true,
+  ['money']                       = true,
+  ['money-fountain']              = true,
+  ['money-fountain-example-map']  = true,
+  ['ped-money-drops']             = true,
+  ['player-data']                 = true,
+
+  -- RedM
+  ['redm-map-one']                = true,
+}
+
+-- ---------------------------------------------------------------------------
 -- loadShared(rel_path) -> table
 -- Loads a shared/ Lua module from this resource's folder and returns the
 -- table it returned (the "local M = {} ... return M" pattern). Errors loudly
@@ -134,32 +179,39 @@ local function readManifestSource(resourceName)
 end
 
 -- ---------------------------------------------------------------------------
--- collectFxManifestFindings() -> (findings, scanned, with_manifest)
--- For every other loaded resource, parse its manifest and run every
--- 'fxmanifest' rule. Each finding is annotated with the resource name in
--- finding.file so the report is unambiguous when multiple resources fire
--- the same rule. Both the parser call and each rule evaluation are wrapped
--- in pcall so a single broken manifest or buggy rule cannot prevent the
--- rest of the scan from running.
+-- collectFxManifestFindings() -> (findings, scanned, with_manifest, skipped)
+-- For every other loaded resource that is NOT in DEFAULT_CFX_RESOURCES,
+-- parse its manifest and run every 'fxmanifest' rule. Each finding is
+-- annotated with the resource name in finding.file so the report is
+-- unambiguous when multiple resources fire the same rule. Both the parser
+-- call and each rule evaluation are wrapped in pcall so a single broken
+-- manifest or buggy rule cannot prevent the rest of the scan from running.
+-- The 'skipped' counter reports how many Cfx-shipped defaults were filtered
+-- out so the user can see fxpreflight is aware of them, not ignoring silently.
 -- ---------------------------------------------------------------------------
 local function collectFxManifestFindings()
   local findings      = {}
   local scanned       = 0
   local with_manifest = 0
+  local skipped       = 0
 
   for _, name in ipairs(listOtherResources()) do
-    scanned = scanned + 1
-    local src, file_used = readManifestSource(name)
-    if src then
-      with_manifest = with_manifest + 1
-      local ok_parse, parsed = pcall(parser_manifest.parse_string, src)
-      if ok_parse and parsed then
-        for _, rule in ipairs(rules.list) do
-          if rule.applies_to == 'fxmanifest' then
-            local ok_eval, result = pcall(rule.evaluate, parsed)
-            if ok_eval and result then
-              result.file = name .. '/' .. file_used
-              table.insert(findings, result)
+    if DEFAULT_CFX_RESOURCES[name] then
+      skipped = skipped + 1
+    else
+      scanned = scanned + 1
+      local src, file_used = readManifestSource(name)
+      if src then
+        with_manifest = with_manifest + 1
+        local ok_parse, parsed = pcall(parser_manifest.parse_string, src)
+        if ok_parse and parsed then
+          for _, rule in ipairs(rules.list) do
+            if rule.applies_to == 'fxmanifest' then
+              local ok_eval, result = pcall(rule.evaluate, parsed)
+              if ok_eval and result then
+                result.file = name .. '/' .. file_used
+                table.insert(findings, result)
+              end
             end
           end
         end
@@ -167,7 +219,7 @@ local function collectFxManifestFindings()
     end
   end
 
-  return findings, scanned, with_manifest
+  return findings, scanned, with_manifest, skipped
 end
 
 -- ---------------------------------------------------------------------------
@@ -200,14 +252,16 @@ AddEventHandler('onResourceStart', function(name)
   local cfg_findings = collectServerCfgFindings(parsed)
 
   -- Sub-phase 2.3: fxmanifest scanning across all loaded resources --------
+  -- Sub-phase 2.3.5: skip Cfx-shipped default resources to keep signal
+  -- focused on user-owned resources.
   -- Wrapped in pcall so a native-call surprise cannot prevent the servercfg
   -- report from being printed.
-  local mf_findings, scanned, with_manifest = {}, 0, 0
-  local ok, err_or_findings, s, w = pcall(collectFxManifestFindings)
+  local mf_findings, scanned, with_manifest, skipped = {}, 0, 0, 0
+  local ok, ret_findings, s, w, sk = pcall(collectFxManifestFindings)
   if ok then
-    mf_findings, scanned, with_manifest = err_or_findings, s, w
+    mf_findings, scanned, with_manifest, skipped = ret_findings, s, w, sk
   else
-    print(PREFIX .. 'WARNING: fxmanifest scan crashed: ' .. tostring(err_or_findings))
+    print(PREFIX .. 'WARNING: fxmanifest scan crashed: ' .. tostring(ret_findings))
   end
 
   -- Merge servercfg + fxmanifest findings into a single sorted report.
@@ -220,7 +274,8 @@ AddEventHandler('onResourceStart', function(name)
 
   print(string.format('%spreflight on %s -- %d bytes parsed',
     PREFIX, cfg_path_used, parsed.bytes))
-  print(string.format('%sscanned %d resources, %d with manifest',
-    PREFIX, scanned, with_manifest))
+  print(string.format(
+    '%sscanned %d resources, %d with manifest (%d Cfx defaults skipped)',
+    PREFIX, scanned, with_manifest, skipped))
   printBlock(block)
 end)
