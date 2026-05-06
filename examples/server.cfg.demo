@@ -1,0 +1,38 @@
+# fxpreflight demo server.cfg
+# This cfg is intentionally broken to showcase what fxpreflight catches.
+# Do NOT use it as a starting point for a real server.
+#
+# Expected findings on this cfg (5 total):
+#   - R001 CRITICAL: endpoint_add_udp missing
+#   - R002 CRITICAL: sv_licenseKey malformed
+#   - R004 WARNING:  default sv_hostname
+#   - R005 WARNING:  sv_maxclients out of [1, 2048]
+#   - R007 WARNING:  steam_webApiKey is empty
+
+# R001 trigger: only TCP endpoint is declared, UDP is intentionally absent.
+endpoint_add_tcp "0.0.0.0:30120"
+# endpoint_add_udp "0.0.0.0:30120"
+
+# R004 trigger: still on a known default hostname.
+sv_hostname "FXServer, but unconfigured"
+
+# R005 trigger: 5000 is well above the 2048 cap.
+sv_maxclients 5000
+
+# R002 trigger: too short and the hyphen is not in the allowed alphabet.
+sv_licenseKey "INVALID-KEY"
+
+# R007 trigger: empty Steam Web API key written via the `set` form -- this
+# is the form the FXServer default cfg template uses, and is the exact
+# case BUG-001 used to silently miss before parser_servercfg learned to
+# unwrap `set / setr / sets` directives.
+set steam_webApiKey ""
+
+# These ensure lines push the byte count well above the 200-byte floor so
+# R003 stays silent. Including them also exercises the directive arrays.
+ensure mapmanager
+ensure chat
+ensure spawnmanager
+ensure sessionmanager
+ensure basic-gamemode
+ensure hardcap

@@ -57,7 +57,8 @@ in the first 200 milliseconds of `restart fxpreflight`.
 
 > A 60-second demo video / GIF will be added with v0.1.1.
 
-Sample console output on a server with one outstanding issue:
+Sample console output on a server with one outstanding issue (a
+single empty `set steam_webApiKey ""`):
 
 ```
 [fxpreflight] v0.1.0 preflight starting -- modules loaded: 4, rules registered: 15
@@ -80,6 +81,13 @@ Sample `fxpreflight_report.md` (paste-ready for Discord / Cfx Forum):
 
 - **R007** — `server.cfg:27` — steam_webApiKey is a placeholder value ('')
 ```
+
+For a more interesting demo with **5 findings spanning CRITICAL +
+WARNING**, see [`examples/`](examples/) -- it ships an intentionally
+broken `server.cfg`, the verbatim console output, and the matching
+markdown report. The folder also documents how to point fxpreflight
+at the demo cfg in two console commands without touching your real
+`server.cfg`.
 
 ---
 

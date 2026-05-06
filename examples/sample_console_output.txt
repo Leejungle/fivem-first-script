@@ -1,0 +1,11 @@
+[fxpreflight] v0.1.0 preflight starting -- modules loaded: 4, rules registered: 15
+[fxpreflight] preflight on examples/server.cfg.demo -- 1382 bytes parsed
+[fxpreflight] scanned 0 resources, 0 with manifest (0 Cfx defaults skipped)
+[fxpreflight] === Preflight report ===
+[fxpreflight] [CRITICAL] R001  server.cfg            Missing required network directive(s): endpoint_add_udp
+[fxpreflight] [CRITICAL] R002  server.cfg:23         sv_licenseKey value is too short (11 chars; minimum 32 required)
+[fxpreflight] [WARNING ] R004  server.cfg:17         sv_hostname is still set to a default value: 'FXServer, but unconfigured'
+[fxpreflight] [WARNING ] R005  server.cfg:20         sv_maxclients = 5000 exceeds FXServer maximum of 2048
+[fxpreflight] [WARNING ] R007  server.cfg:29         steam_webApiKey is a placeholder value ('')
+[fxpreflight] === Summary: 2 CRITICAL, 3 WARNING, 0 INFO ===
+[fxpreflight] report written -> fxpreflight_report.md (565 bytes)
