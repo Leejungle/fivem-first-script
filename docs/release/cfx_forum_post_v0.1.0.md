@@ -146,6 +146,34 @@ default cfg template uses) and the direct `steam_webApiKey ""` form.
 The parser unwraps `set / setr / sets` so any rule looking up a
 convar finds it regardless of which syntax the user wrote.
 
+## Performance
+
+fxpreflight has effectively zero runtime overhead by design:
+
+- **Boot-time scan**: ~30–80 ms total to read the cfg snapshot, enumerate
+  every loaded resource, parse each `fxmanifest.lua`, evaluate 12 rules,
+  format the report, and write both output files. Approximate; varies
+  with cfg size and resource count. Measured on a Windows FXServer
+  (build ~12100), 1.2 KB `server.cfg`, ~25 loaded resources (default Cfx
+  setup).
+- **Idle (post-boot)**: 0.00 ms tick. The resource registers a single
+  `onResourceStart` handler and one console command (`fxpreflight`) for
+  on-demand reruns, then sits idle. It does not poll, does not hold
+  timers, does not run any per-frame code.
+- **Memory**: <100 KB Lua heap (4 shared modules + 15 rule descriptors +
+  small log buffer). Negligible against any FXServer footprint.
+- **Network**: zero. fxpreflight does not make HTTP requests, does not
+  open sockets, and does not contact any external service.
+- **Filesystem**: reads only `server.cfg.runtime` (the snapshot copied
+  by `start.bat`) and the `fxmanifest.lua` (or legacy `__resource.lua`)
+  of every loaded resource — read-only, sequential. Writes only two
+  files inside its own resource folder: `fxpreflight_report.md` and
+  `fxpreflight_run.log`.
+
+You can verify the numbers with `resmon` (FXServer's built-in resource
+monitor): fxpreflight will appear at the top of the table during the
+first ~80 ms of the boot sequence, then drop to 0.00 ms forever after.
+
 ## Known limitations
 
 - **Snapshot, not live**: `server.cfg.runtime` is the file fxpreflight
@@ -174,6 +202,16 @@ convar finds it regardless of which syntax the user wrote.
 | v0.1.1 | CI + CONTRIBUTING + Linux start.sh | GitHub Actions test runner badge, contribution guide, bash equivalent of the snapshot copy step, demo video |
 | v0.2 | Implement R006 / R014 / R015 + `config.lua` | The 3 v0.1 stubs plus user-facing config for whitelist and severity overrides |
 | v0.3 | TBD | Discord webhook output, optional HTML report — driven by user feedback |
+
+## At a glance
+
+|                              |                                              |
+|------------------------------|----------------------------------------------|
+| Code is accessible           | Yes (MIT-licensed, public on GitHub)         |
+| Subscription-based           | No                                           |
+| Lines (approximately)        | ~1,500 Lua across `server/` + `shared/`      |
+| Requirements & dependencies  | None (zero external deps; pure Lua 5.4)      |
+| Support                      | Yes (via GitHub issues)                      |
 
 ## Source / License
 
