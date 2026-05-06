@@ -53,6 +53,8 @@ first ~80 ms of boot.
 
 ## Demo
 
+![fxpreflight console output, R007 firing on an empty steam_webApiKey](docs/release/images/v0.1.0-console.png)
+
 > A 60-second demo video / GIF will be added with v0.1.1.
 
 Sample console output on a server with one outstanding issue (a

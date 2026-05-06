@@ -36,6 +36,8 @@ The full rule list is below in this post.
 
 ## Demo
 
+![fxpreflight console output, R007 firing on an empty steam_webApiKey](https://raw.githubusercontent.com/Leejungle/fivem-first-script/main/docs/release/images/v0.1.0-console.png)
+
 Console output on a server with one outstanding issue (a single empty
 `set steam_webApiKey ""`):
 
