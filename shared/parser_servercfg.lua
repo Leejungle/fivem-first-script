@@ -14,6 +14,15 @@ local function strip_quotes(s)
   return s
 end
 
+-- Convar-setting prefixes recognised by FXServer's cfg parser. When a line
+-- begins with one of these and is followed by an inner convar name, we want
+-- the directive to be indexed under the inner name (e.g. steam_webApiKey),
+-- not under the prefix word, so rules can find it without having to know
+-- which form the user wrote. The original prefix is preserved on the entry
+-- as set_kind for rules that legitimately care (e.g. detecting that a
+-- replicated convar was correctly written with `setr`).
+local SET_PREFIXES = { set = true, setr = true, sets = true }
+
 -- Build the result table from raw text.
 local function parse_text(text)
   local result = {
@@ -51,17 +60,36 @@ local function parse_text(text)
     else
       -- First whitespace-separated token is the directive key; the rest is the value.
       local key, rest = trimmed:match("^(%S+)%s*(.*)")
-      local value = strip_quotes(rest or "")
+      rest = rest or ""
 
-      entry.kind    = "directive"
-      entry.key     = key
-      entry.value   = value
-      entry.comment = nil
+      -- BUG-001 unwrap: if the line is `set/setr/sets <inner_key> <value>` and
+      -- there IS an inner key, promote the inner key to be the directive key
+      -- and remember the original prefix in set_kind. Lines like a bare `set`
+      -- with nothing after it fall through unchanged so we never silently drop
+      -- a malformed line.
+      local set_kind = nil
+      if SET_PREFIXES[key] and rest ~= "" then
+        local inner_key, inner_rest = rest:match("^(%S+)%s*(.*)")
+        if inner_key and inner_key ~= "" then
+          set_kind = key
+          key      = inner_key
+          rest     = inner_rest or ""
+        end
+      end
+
+      local value = strip_quotes(rest)
+
+      entry.kind     = "directive"
+      entry.key      = key
+      entry.value    = value
+      entry.set_kind = set_kind
+      entry.comment  = nil
 
       if not result.directives[key] then
         result.directives[key] = {}
       end
-      table.insert(result.directives[key], { value = value, line = n })
+      table.insert(result.directives[key],
+        { value = value, line = n, set_kind = set_kind })
     end
 
     table.insert(result.lines, entry)

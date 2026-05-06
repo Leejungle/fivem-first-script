@@ -181,4 +181,17 @@ t.describe("rules.R007 (steam_webApiKey placeholder)", function()
     t.assert_nil(finding, "R007 should not fire on a non-placeholder value")
   end)
 
+  -- BUG-001 regression: real-world cfgs almost always write this convar via
+  -- the `set` form (FXServer's default cfg template uses `set steam_webApiKey ""`).
+  -- Before the parser fix, R007 would silently miss it because the parser
+  -- stored the line under directives.set instead of directives.steam_webApiKey.
+  t.it("fires on set steam_webApiKey \"\" (BUG-001 regression)", function()
+    local parsed  = parser_cfg.parse_string('set steam_webApiKey ""\n')
+    local finding = r007.evaluate(parsed)
+    t.assert_true(finding ~= nil,
+      "R007 must fire for set-form empty steam_webApiKey")
+    t.assert_eq(finding.severity, "WARNING", "severity")
+    t.assert_eq(finding.rule_id,  "R007",    "rule_id")
+  end)
+
 end)
