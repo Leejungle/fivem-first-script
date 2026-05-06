@@ -8,18 +8,19 @@
 [![FiveM](https://img.shields.io/badge/FiveM-cerulean+-yellow)](https://fivem.net)
 [![lua](https://img.shields.io/badge/lua-5.4-blueviolet)](https://www.lua.org/)
 
-fxpreflight is a server-side FiveM resource that runs at boot and prints a
-human-readable diagnosis of common configuration mistakes in your
-`server.cfg` and in every loaded resource's `fxmanifest.lua`. Think of it as
-a linter for the bits of FiveM config that silently misbehave.
+fxpreflight is a small server-side tool I made while setting up FiveM
+servers. It runs once at server boot, looks at `server.cfg` and every
+loaded resource's `fxmanifest.lua`, and prints a short report in the
+console listing the boring mistakes I see most often.
 
-It does NOT auto-fix anything. It detects and reports, you decide how to act.
+It does not auto-fix anything. It just tells you what looks wrong, and
+you fix it.
 
 ---
 
 ## Table of contents
 
-- [Why fxpreflight](#why-fxpreflight)
+- [What it does](#what-it-does)
 - [Demo](#demo)
 - [Quick install (5 minutes)](#quick-install-5-minutes)
 - [What it checks](#what-it-checks)
@@ -32,24 +33,21 @@ It does NOT auto-fix anything. It detects and reports, you decide how to act.
 
 ---
 
-## Why fxpreflight
+## What it does
 
-Most FiveM debugging tools (txAdmin, monitor) focus on **runtime**:
-players online, resource memory, network metrics. fxpreflight focuses on
-the much earlier failure mode -- **boot-time misconfiguration**:
+fxpreflight checks a small list of `server.cfg` and `fxmanifest.lua`
+mistakes when the server starts. The full rule list is in
+[What it checks](#what-it-checks) below. A few examples:
 
-- A typo in `endpoint_add_tcp` and the server quietly never accepts
-  connections.
-- `sv_hostname` left at the FXServer default and the server gets buried
-  in the public list.
-- `steam_webApiKey ""` and your Steam-gated permissions break with no
-  obvious error.
-- A bundled resource still using `fx_version 'adamant'` and you hit a
-  silent compatibility issue six months later.
+* `endpoint_add_tcp` or `endpoint_add_udp` missing or commented out
+* `sv_licenseKey` is the wrong length or has invalid characters
+* `sv_hostname` still set to the FXServer default
+* `steam_webApiKey` empty or set to `"none"`
+* a resource still using `__resource.lua` instead of `fxmanifest.lua`
 
-These are not glamorous bugs. They are the kind that consume the first
-hour of every new server owner's evening. fxpreflight surfaces them
-in the first 200 milliseconds of `restart fxpreflight`.
+These are not interesting bugs. They just eat hours when you do not
+know to check them. fxpreflight runs the checklist for you in the
+first ~80 ms of boot.
 
 ---
 
@@ -82,11 +80,11 @@ Sample `fxpreflight_report.md` (paste-ready for Discord / Cfx Forum):
 - **R007** — `server.cfg:27` — steam_webApiKey is a placeholder value ('')
 ```
 
-For a more interesting demo with **5 findings spanning CRITICAL +
-WARNING**, see [`examples/`](examples/) -- it ships an intentionally
-broken `server.cfg`, the verbatim console output, and the matching
-markdown report. The folder also documents how to point fxpreflight
-at the demo cfg in two console commands without touching your real
+A 5-finding demo cfg with both **CRITICAL** and **WARNING** is in
+[`examples/`](examples/). You can read the broken cfg, the console
+output, and the matching markdown report there without installing
+anything. The folder also documents how to point fxpreflight at the
+demo cfg in two console commands without touching your real
 `server.cfg`.
 
 ---
@@ -95,8 +93,8 @@ at the demo cfg in two console commands without touching your real
 
 ### Prerequisites
 
-- A working FXServer (Windows host primary support; Linux works with a
-  one-line tweak -- see [Known limitations](#known-limitations)).
+- A working FXServer. Windows is the primary supported host. Linux
+  works with a one-line tweak, see [Known limitations](#known-limitations).
 - Tested on FXServer artifact 7290+ on Windows.
 
 ### Steps
@@ -111,7 +109,7 @@ at the demo cfg in two console commands without touching your real
    <server-data>/resources/fxpreflight/
    ```
 
-   The folder name MUST be `fxpreflight` -- the resource hard-codes the
+   The folder name MUST be `fxpreflight`. The resource hard-codes the
    snapshot path against that name. If your archive expands to a
    different folder name, rename it to `fxpreflight`.
 
@@ -141,8 +139,8 @@ at the demo cfg in two console commands without touching your real
    FXServer console. Two files will be written into
    `resources/fxpreflight/`:
 
-   - `fxpreflight_report.md` -- the markdown report (paste-ready)
-   - `fxpreflight_run.log`   -- the verbatim console output of the run
+   - `fxpreflight_report.md`: the markdown report (paste-ready)
+   - `fxpreflight_run.log`: the verbatim console output of the run
 
    Both files are overwritten on every run.
 
@@ -166,7 +164,7 @@ issues, forum posts, and Discord.
 | R008  | CRITICAL | `fxmanifest.lua` is missing `fx_version` (deprecated `__resource.lua`) |
 | R009  | WARNING  | `fx_version` is older than `'cerulean'` |
 | R011  | WARNING  | `fxmanifest.lua` has no `games {}` declaration |
-| R013  | INFO     | `lua54 'no'` -- explicitly opting out of Lua 5.4 |
+| R013  | INFO     | `lua54 'no'`, explicitly opting out of Lua 5.4 |
 | R014  | _stub_   | `ensure <res>` points at a folder that does not exist (v0.2) |
 | R015  | _stub_   | `add_ace <group>` without a matching `add_principal` (v0.2) |
 
@@ -270,12 +268,7 @@ servercfg rules (R001..R007)         fxmanifest rules (R008..R013)
 | v0.1 (now) | First public release | 12 active rules, fxmanifest scan, Cfx defaults skip, markdown report, `/fxpreflight` rerun command |
 | v0.1.1 | CI + CONTRIBUTING + Linux start.sh | GitHub Actions test runner badge, contribution guide, bash equivalent of the snapshot copy step |
 | v0.2 | Implement R006 / R014 / R015, `config.lua` | The 3 v0.1 stubs, plus user-facing config for whitelist and severity overrides |
-| v0.3 | TBD | Discord webhook output, optional HTML report -- driven by user feedback |
-
-The current paid product candidates (Discord Admin Audit Log, Staff
-Action Logger, Resource Health Monitor, FiveM Server Safety Toolkit)
-are intentionally outside the v0.1 scope. fxpreflight v0.1 ships free
-under MIT to build credibility and gather feedback first.
+| v0.3 | TBD | Discord webhook output, optional HTML report, driven by user feedback |
 
 ---
 
@@ -288,7 +281,7 @@ lua tests/run.lua
 ```
 
 Expected output ends with `134 passed, 0 failed`. The runner is
-self-contained (`tests/run.lua` is ~90 lines) -- no `busted`, no
+self-contained (`tests/run.lua` is ~90 lines). No `busted`, no
 luarocks, no external assertion library.
 
 ### Repo layout
@@ -297,7 +290,7 @@ luarocks, no external assertion library.
 .
 ├── fxmanifest.lua              # FiveM resource manifest
 ├── server/main.lua             # Resource entry point (FiveM-side)
-├── shared/                     # Pure Lua, no FiveM deps -- unit tested
+├── shared/                     # Pure Lua, no FiveM deps, unit tested
 │   ├── parser_servercfg.lua
 │   ├── parser_fxmanifest.lua
 │   ├── rules.lua

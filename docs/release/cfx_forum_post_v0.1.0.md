@@ -5,37 +5,34 @@ later.
 
 ---
 
-## What is fxpreflight?
+## fxpreflight
 
-fxpreflight is a server-side FiveM resource that runs at boot and prints
-a human-readable diagnosis of common configuration mistakes in your
-`server.cfg` and in every loaded resource's `fxmanifest.lua`. Think of
-it as a linter for the bits of FiveM config that silently misbehave.
+fxpreflight is a small server-side tool I made while setting up FiveM
+servers. It runs once at server boot, looks at `server.cfg` and every
+loaded resource's `fxmanifest.lua`, and prints a short report in the
+console listing the boring mistakes I see most often.
 
-**It does NOT auto-fix anything.** It detects and reports; you decide
-how to act.
+It does not auto-fix anything. It just tells you what looks wrong, and
+you fix it. It is also not a replacement for txAdmin, monitor, or
+reading actual logs. It catches a small set of common config mistakes
+earlier so the silent boot failures stop being silent.
 
-It is free, open-source under MIT, has zero external dependencies, and
-is implemented in pure Lua 5.4.
+It is free, MIT-licensed, pure Lua 5.4, and has no external
+dependencies.
 
-## Why I built this
+### Examples of things it catches
 
-Most FiveM debugging tools (txAdmin, monitor) focus on **runtime**:
-players online, resource memory, network metrics. fxpreflight focuses
-on the much earlier failure mode -- **boot-time misconfiguration**:
+A few of the 12 active rules:
 
-- A typo in `endpoint_add_tcp` and the server quietly never accepts
-  connections.
-- `sv_hostname` left at the FXServer default and the server gets buried
-  in the public list.
-- `set steam_webApiKey ""` and your Steam-gated permissions break with
-  no obvious error.
-- A bundled resource still using `fx_version 'adamant'` and you hit a
-  silent compatibility issue six months later.
+* `endpoint_add_tcp` or `endpoint_add_udp` missing or commented out
+* `sv_licenseKey` is the wrong length or has invalid characters
+* `sv_hostname` is still the FXServer default
+* `steam_webApiKey` is empty or set to `"none"`
+* a resource still ships a deprecated `__resource.lua` instead of
+  `fxmanifest.lua`
+* a resource is on a very old `fx_version` like `'adamant'`
 
-These are not glamorous bugs. They are the kind that consume the first
-hour of every new server owner's evening. fxpreflight surfaces them in
-the first 200 milliseconds of `restart fxpreflight`.
+The full rule list is below in this post.
 
 ## Demo
 
@@ -64,11 +61,10 @@ The matching `fxpreflight_report.md` (paste-ready for Discord / forum):
 - **R007** — `server.cfg:27` — steam_webApiKey is a placeholder value ('')
 ```
 
-For a more interesting **5-finding** demo with both CRITICAL and
-WARNING severities, see [examples/ on the
-repo](https://github.com/Leejungle/fivem-first-script/tree/main/examples)
--- it ships an intentionally broken `server.cfg`, the verbatim console
-output, and the matching markdown report.
+A 5-finding demo cfg with both CRITICAL and WARNING is in
+[examples/](https://github.com/Leejungle/fivem-first-script/tree/main/examples).
+You can read the broken cfg, the console output, and the matching
+markdown report there without installing anything.
 
 A 60-second video / GIF will land with v0.1.1.
 
@@ -108,8 +104,8 @@ A 60-second video / GIF will land with v0.1.1.
 5. Boot the server. Two files are written into
    `resources/fxpreflight/`:
 
-   - `fxpreflight_report.md` — markdown findings, paste-ready.
-   - `fxpreflight_run.log`   — verbatim console output of the run.
+   - `fxpreflight_report.md`: markdown findings, paste-ready.
+   - `fxpreflight_run.log`: verbatim console output of the run.
 
    Both are overwritten on every preflight run.
 
@@ -137,7 +133,7 @@ R015) are reserved for v0.2.
 | R008  | CRITICAL | `fxmanifest.lua` is missing `fx_version` (deprecated `__resource.lua`) |
 | R009  | WARNING  | `fx_version` is older than `'cerulean'` |
 | R011  | WARNING  | `fxmanifest.lua` has no `games {}` declaration |
-| R013  | INFO     | `lua54 'no'` — explicitly opting out of Lua 5.4 |
+| R013  | INFO     | `lua54 'no'`, explicitly opting out of Lua 5.4 |
 | R014  | _stub_   | `ensure <res>` points at a folder that does not exist (v0.2) |
 | R015  | _stub_   | `add_ace <group>` without a matching `add_principal` (v0.2) |
 
@@ -148,7 +144,8 @@ convar finds it regardless of which syntax the user wrote.
 
 ## Performance
 
-fxpreflight has effectively zero runtime overhead by design:
+It runs once at server boot, then sits idle. Numbers below are from
+my testing on Windows.
 
 - **Boot-time scan**: ~30–80 ms total to read the cfg snapshot, enumerate
   every loaded resource, parse each `fxmanifest.lua`, evaluate 12 rules,
@@ -166,7 +163,7 @@ fxpreflight has effectively zero runtime overhead by design:
   open sockets, and does not contact any external service.
 - **Filesystem**: reads only `server.cfg.runtime` (the snapshot copied
   by `start.bat`) and the `fxmanifest.lua` (or legacy `__resource.lua`)
-  of every loaded resource — read-only, sequential. Writes only two
+  of every loaded resource, read-only and sequential. Writes only two
   files inside its own resource folder: `fxpreflight_report.md` and
   `fxpreflight_run.log`.
 
@@ -185,7 +182,7 @@ first ~80 ms of the boot sequence, then drop to 0.00 ms forever after.
 - **Cfx default whitelist is hard-coded**: 26 first-party Cfx resources
   are silently skipped. v0.2 will let you override the list via
   `config.lua`.
-- **Detection only** — fxpreflight does not auto-fix any finding.
+- **Detection only**: fxpreflight does not auto-fix any finding.
 - **Windows-first**: the snapshot copy line in `start.bat` is Windows
   syntax. The Linux equivalent is one line of bash:
   ```bash
@@ -201,7 +198,7 @@ first ~80 ms of the boot sequence, then drop to 0.00 ms forever after.
 | **v0.1 (now)** | First public release | 12 active rules, fxmanifest scan, Cfx defaults skip, markdown report, `/fxpreflight` rerun command |
 | v0.1.1 | CI + CONTRIBUTING + Linux start.sh | GitHub Actions test runner badge, contribution guide, bash equivalent of the snapshot copy step, demo video |
 | v0.2 | Implement R006 / R014 / R015 + `config.lua` | The 3 v0.1 stubs plus user-facing config for whitelist and severity overrides |
-| v0.3 | TBD | Discord webhook output, optional HTML report — driven by user feedback |
+| v0.3 | TBD | Discord webhook output, optional HTML report, driven by user feedback |
 
 ## At a glance
 
@@ -219,10 +216,10 @@ first ~80 ms of the boot sequence, then drop to 0.00 ms forever after.
 - **License**: [MIT](https://github.com/Leejungle/fivem-first-script/blob/main/LICENSE)
 - **Issues / feature requests**: https://github.com/Leejungle/fivem-first-script/issues
 
-I'm building this on the side as a portfolio piece while learning the
-FiveM ecosystem. Feedback is very welcome -- if a rule fires wrongly
-on your cfg, please open an issue with the smallest reproducible
-snippet and I will look at it.
+This is the first FiveM resource I am sharing publicly. I am still
+learning the ecosystem, so if a rule fires on something it should not,
+or if I got something wrong about how FXServer behaves, please open a
+GitHub issue with a small reproducible cfg or fxmanifest snippet.
 
 fxpreflight is not affiliated with Cfx.re. "FiveM" is a trademark of
 Cfx.re.
